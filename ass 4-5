@@ -1,0 +1,55 @@
+Q) 1.	Explain what is checksum and the importance of checksum and how hadoop performs checksum.
+
+ans-a) A checksum is a small-sized datum derived from a block of digital data for the purpose of detecting 
+  errors which may have been introduced during its transmission or storage.It is applied to an file after 
+  it is received from download server.When we download files from certain websites, they have a very long 
+  string of numbers and letters called a checksum. These really long strings basically act as fingerprints 
+  for that particular file, whether it be an EXE, ISO, ZIP, etc.
+
+b) Checksums are used to ensure the data integrity of a file after it has been transmitted from one storage device 
+  to another. This can be across the Internet or simply between two computers on the same network. Either way,
+  if we want to ensure that the transmitted file is exactly the same as the source file, we can use a checksum.
+
+c) HDFS checksums all data written to it and by default verifies checksums when reading data.A separate checksum
+  is created for every dfs ,bytes-per-checksum bytes of data.
+  
+d) Datanodes are responsible for verifying the data they receive before storing the data and its checksum.
+  - When the clients read data from datanodes, they verify checksums as well as compare them with the ones 
+    stored at the datanodes.
+  - get - command does the checksum verification during the data read.
+  - copyFromLocal does not perform checksum during data read.
+  - ignoreCrc option with the -get is equivalent to -copyToLocal command.
+  - Disabling checksum verification is useful if we have a corrupt file that we want to inspect so that we can 
+    decide what to do with it. 
+    
+    
+Q-2.  Explain the anatomy of file write to HDFS.
+
+ans-a)   Name node saves part of HDFS metadata like file location, permission etc. in files called namespace image
+    and edit logs. Files are stored in HDFS as blocks. These block information are not saved in any file.It is 
+    gathered every time the cluster is started. And this information is stored in name node’s memory.
+b)  Replica Placement : Assuming the replication factor is 3; When a file is written from a data node (say R1N1),
+    Hadoop attempts to save the first replica in same data node (R1N1). Second replica is written into another node
+    (R2N2) in a different rack (R2). Third replica is written into another node (R2N1) in the same rack (R2) where 
+    the second replica was saved. 
+c)  Hadoop takes a simple approach in which the network is represented as a tree and the distance between two nodes 
+    is the sum of their distances to their closest common ancestor. The levels can be like --->"Data Center" > "Rack" > "Node".
+    Example:'/d1/r1/n1' is a representation for a node named n1 on rack r1 in data center d1. 
+    
+    Distance calculation has 4 possible scenarios as; 
+1. distance(/d1/r1/n1, /d1/r1/n1) = 0 [Processes on same node] 
+2. distance(/d1/r1/n1, /d1/r1/n2) = 2 [different node is same rack] 
+3. distance(/d1/r1/n1, /d1/r2/n3) = 4 [node in different rack]
+
+
+Q-3. Explain how HDFS handles failures during file write:
+
+ans->  when failure occurs during the write, the pipeline is closed immediately and packets in the acknowledgement queue 
+   are added to the front of the data queue.
+>  During failure the current block on the good datanodes is given a new identity, which is communicated to the namenode.
+>  The failed datanode is removed from the pipeline, and a new pipeline is constructed from the two good datanodes.
+>  The remainder of the block's data is written to the good datanodes in the pipeline.
+>  The namenode notices that the block is under-replicated, and it arranges for a further replica to be created on
+   another node.
+>  As long as dfs.namenode.replication.min replicas (which defaults to 1) are written, the write will succeed.
+>  The block will be asynchronously replicated across the cluster until its target replication factor is reached.
